@@ -3,7 +3,7 @@
 Its a very simple project to find from which lines do we have memory leaks, and if there are any.
 
 ### How does it work?
-This library is wrapping the `malloc`/`calloc`/`free` in a macro to keep track of the pointers that were allocated and freed.
+This library is wrapping the `malloc`/`calloc`/`realloc`/`free` in a macro to keep track of the pointers that were allocated and freed.
 
 ### What do you need?
 Any compiler that supports these extensions:

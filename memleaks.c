@@ -69,6 +69,30 @@ void* _ml_vector_push_data(void* ptr, const char* p_file, ml_size_t line)
     return ptr;
 }
 
+/* Updating the data based on pointers. */
+void* _ml_vector_update_data(const void* p_src, void* p_dest, const char* p_file, ml_size_t line)
+{
+    ml_size_t i;
+
+    if(p_dest == NULL)
+        return NULL;
+
+    for(i = 0; i < VEC_SIZE; ++i)
+    {
+        if(VEC_DATA[i].p_ptr == p_src)
+        {
+            pMemoryInfo p_info = &VEC_DATA[i];
+            p_info->p_ptr  = p_dest;
+            p_info->p_file = p_file;
+            p_info->line   = line;
+
+            break;
+        }
+    }
+
+    return p_dest;
+}
+
 /* Remove data from vector by index. */
 static
 void vector_remove_by_index(ml_size_t index)

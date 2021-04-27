@@ -61,6 +61,7 @@ typedef struct {
 
 extern void  _ml_vector_init(); 
 extern void* _ml_vector_push_data(void* ptr, const char* p_file, ml_size_t line);
+extern void* _ml_vector_update_data(const void* p_src, void* p_dest, const char* p_file, ml_size_t line);
 extern void  _ml_vector_first_remove_data(const void* ptr);
 
 /* ------------------------------------------------------------------------------------ */
@@ -80,6 +81,9 @@ extern void _ml_exit_message();
 
 #define calloc(items, size) \
     _ml_vector_push_data(calloc(items, size), __FILE__, __LINE__)
+
+#define realloc(ptr, size) \
+    _ml_vector_update_data(ptr, realloc(ptr, size), __FILE__, __LINE__)
 
 #define free(ptr)                           \
     do {                                    \
