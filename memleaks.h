@@ -41,7 +41,11 @@
 
 /* Type definitions for Ansi C */
 #if defined(ML_C_VER90)
- typedef enum { false, true } bool;
+# ifndef bool
+#  bool  char
+#  true  1
+#  false 0
+# endif
  typedef unsigned long ml_size_t;
 #else
  typedef size_t ml_size_t;
