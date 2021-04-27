@@ -7,10 +7,8 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -35,17 +33,11 @@
 
 #ifndef ML_C_VER90
 # include <stdint.h>
-# include <stdbool.h>
 #endif
 /* ------------------------------------------------------------------------------------ */
 
 /* Type definitions for Ansi C */
 #if defined(ML_C_VER90)
-# ifndef bool
-#  bool  char
-#  true  1
-#  false 0
-# endif
  typedef unsigned long ml_size_t;
 #else
  typedef size_t ml_size_t;
@@ -81,7 +73,7 @@ extern void _ml_exit_message();
     do {                           \
         _ml_vector_init();         \
         atexit(&_ml_exit_message); \
-    } while(false)
+    } while(0)
 
 #define malloc(bytes) \
     _ml_vector_push_data(malloc(bytes), __FILE__, __LINE__)
@@ -93,6 +85,6 @@ extern void _ml_exit_message();
     do {                                    \
         _ml_vector_first_remove_data(ptr);  \
         free(ptr);                          \
-    } while(false)      
+    } while(0)      
 
 #endif /* MEMORY_LEAKS_H */
