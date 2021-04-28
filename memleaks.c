@@ -1,8 +1,28 @@
 #include "memleaks.h"
 #undef malloc
 #undef calloc
+#undef realloc
 #undef free
 /* ------------------------------------------------------------------------------------ */
+
+#define MAX_ML_SIZE_T ((ml_size_t)-1)
+/* ------------------------------------------------------------------------------------ */
+
+/* Holds all of the necessary information about the memory allocation. */
+typedef struct {
+    const void*     p_ptr;
+    const char*     p_file;
+    const char*     p_func;
+    ml_size_t       line;
+} MemoryInfo, *pMemoryInfo;
+/* ------------------------------------------------------------------------------------ */
+
+/* Imitate the behaviour of std::vector. */
+typedef struct {
+    ml_size_t       max_size;
+    ml_size_t       index;
+    pMemoryInfo     p_data;
+} MemoryInfoVector, *pMemoryInfoVector;
 
 /* Globally vector initialization. */
 static MemoryInfoVector global_vector;
@@ -12,8 +32,8 @@ static MemoryInfoVector global_vector;
 #define VEC_SIZE     VEC_INDEX
 #define VEC_MAX_SIZE global_vector.max_size
 
-#define VEC_EMPTY    (VEC_SIZE == 0)
-#define VEC_CLEAR    free(VEC_DATA)
+#define VEC_EMPTY()    (VEC_SIZE == 0)
+#define VEC_CLEAR()    free(VEC_DATA)
 /* ------------------------------------------------------------------------------------ */
 
 /* Printing an error message and exiting.. */
@@ -21,7 +41,7 @@ static
 void invoke_runtime_error(const char* str)
 {
     puts(str);
-    VEC_CLEAR;
+    VEC_CLEAR();
     exit(EXIT_FAILURE);
 }
 /* ------------------------------------------------------------------------------------ */
@@ -37,6 +57,33 @@ void _ml_vector_init()
         invoke_runtime_error("Failed to initialize vector.");
 }
 
+/* Looking for ptr in vector, and returns its pointer. */
+static
+pMemoryInfo vector_find_data_by_pointer(const void* ptr) 
+{
+    ml_size_t i;
+    for(i = 0; i < VEC_SIZE; ++i)
+    {
+        if(VEC_DATA[i].p_ptr == ptr)
+            return &VEC_DATA[i];
+    }
+    
+    return NULL;
+}
+
+static
+ml_size_t vector_find_data_by_pointer_and_get_index(const void* ptr)
+{
+    ml_size_t i;
+    for(i = 0; i < VEC_SIZE; ++i)
+    {
+        if(VEC_DATA[i].p_ptr == ptr)
+            return i;
+    }
+
+    return MAX_ML_SIZE_T;
+}
+
 /* Increase vector size by 2. */
 static 
 void vector_increase_size()
@@ -49,7 +96,7 @@ void vector_increase_size()
 }
 
 /* Push data into vector. */
-void* _ml_vector_push_data(void* ptr, const char* p_file, ml_size_t line)
+void* _ml_vector_push_data(void* ptr, const char* p_file, const char* p_func, ml_size_t line)
 {
     if(VEC_INDEX == VEC_MAX_SIZE)
         vector_increase_size();
@@ -57,9 +104,11 @@ void* _ml_vector_push_data(void* ptr, const char* p_file, ml_size_t line)
     /* Creating possible memory leak info. */
     if(ptr != NULL)
     {
+        /* MemoryInfo info = {.p_ptr = ptr, .p_file = p_file, .p_func = p_func, .line = line }; */
         MemoryInfo info;
         info.p_ptr  = ptr;
         info.p_file = p_file;
+        info.p_func = p_func;
         info.line   = line;
 
         VEC_DATA[VEC_INDEX] = info;
@@ -70,25 +119,23 @@ void* _ml_vector_push_data(void* ptr, const char* p_file, ml_size_t line)
 }
 
 /* Updating the data based on pointers. */
-void* _ml_vector_update_data(const void* p_src, void* p_dest, const char* p_file, ml_size_t line)
+void* _ml_vector_update_data(const void* p_src, 
+                             void* p_dest, const char* p_file, const char* p_func, ml_size_t line)
 {
-    ml_size_t i;
+    pMemoryInfo p_info;
 
     if(p_dest == NULL)
         return NULL;
 
-    for(i = 0; i < VEC_SIZE; ++i)
-    {
-        if(VEC_DATA[i].p_ptr == p_src)
-        {
-            pMemoryInfo p_info = &VEC_DATA[i];
-            p_info->p_ptr  = p_dest;
-            p_info->p_file = p_file;
-            p_info->line   = line;
+    p_info = vector_find_data_by_pointer(p_src);
 
-            break;
-        }
-    }
+    if(p_info == NULL)
+        invoke_runtime_error("Unexpected error from _ml_vector_update_data.");
+
+    p_info->p_ptr  = p_dest;
+    p_info->p_file = p_file;
+    p_info->p_func = p_func;
+    p_info->line   = line;
 
     return p_dest;
 }
@@ -111,15 +158,12 @@ void vector_remove_by_index(ml_size_t index)
 /* Remove data from vector. */
 void _ml_vector_first_remove_data(const void* ptr)
 {
-    ml_size_t i;
-    for(i = 0; i < VEC_INDEX; ++i)
-    {
-        if(VEC_DATA[i].p_ptr == ptr)
-        {
-            vector_remove_by_index(i);
-            break;
-        }
-    }
+    ml_size_t idx = vector_find_data_by_pointer_and_get_index(ptr);
+
+    if(idx == MAX_ML_SIZE_T)
+        invoke_runtime_error("Unexpected error from _ml_vector_first_remove_data.");
+
+    vector_remove_by_index(idx);
 }
 /* ------------------------------------------------------------------------------------ */
 
@@ -127,19 +171,19 @@ void _ml_exit_message()
 {
     ml_size_t i;
 
-    if(VEC_EMPTY)
+    if(VEC_EMPTY())
         printf("Great job! no leaks!\n");
     else
     {
-        printf("Found %zu leaks:\n", VEC_SIZE);
+        printf("Found %lu leaks:\n", VEC_SIZE);
 
         for(i = 0; i < VEC_SIZE; ++i)
         {
             pMemoryInfo p_info = &VEC_DATA[i];
-            printf(" #%zu Leaking address: %p, In file: %s, In line: %zu\n", 
-                    i + 1, p_info->p_ptr, p_info->p_file, p_info->line);
+            printf(" #%lu Leaking address: %p, In file: '%s', In function: '%s', In line: %lu\n", 
+                    i + 1, p_info->p_ptr, p_info->p_file, p_info->p_func, p_info->line);
         }
     }
 
-    VEC_CLEAR;
+    VEC_CLEAR();
 }
